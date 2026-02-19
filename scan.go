@@ -24,19 +24,20 @@ func getDotFilePath() string {
 }
 
 // openFile opens the file located at `filePath`. Creates ii if not existing
-func openFile(filePath string) *os.File {
-	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_RDWR, 0755)
+func openFileReadOnly(filePath string) *os.File {
+	f, err := os.Open(filePath) // O_RDONLY
 	if err != nil {
 		if os.IsNotExist(err) {
-			// file does not exist
-			_, err := os.Create(filePath)
-			if err != nil {
+			// если файла нет — создаём пустой и открываем заново для чтения
+			if err := os.WriteFile(filePath, []byte(""), 0644); err != nil {
 				panic(err)
 			}
-		} else {
-			// other error
-			panic(err)
+			f, err = os.Open(filePath)
 		}
+	}
+
+	if err != nil {
+		panic(err)
 	}
 
 	return f
@@ -45,7 +46,7 @@ func openFile(filePath string) *os.File {
 // parseFileLinesToSlice given a file path string, gets the content
 // of each line and parses it to a slice of string
 func parseFileLinesToSlice(filePath string) []string {
-	f := openFile(filePath)
+	f := openFileReadOnly(filePath)
 	defer f.Close()
 
 	var lines []string
@@ -117,9 +118,9 @@ func scanGitFolders(folders []string, folder string) []string {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer f.Close()
 
 	files, err := f.Readdir(-1)
-	f.Close().Error()
 	if err != nil {
 		log.Fatal(err)
 	}
